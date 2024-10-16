@@ -1,0 +1,30 @@
+{
+    "name": "mad-naver-blog-crawler",
+    "version": "0.0.1",
+    "description": "naver blog content crawler",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/yourusername/my-typescript-package.git"
+    },
+    "keywords": [
+        "typescript",
+        "npm",
+        "package"
+    ],
+    "author": "MadfishDT",
+    "license": "MIT",
+    "devDependencies": {
+        "typescript": "^5.6.3",
+        "@typescript-eslint/eslint-plugin": "^8.9.0",
+        "@typescript-eslint/parser": "^8.9.0",
+        "eslint": "^9.12.0",
+        "eslint-config-prettier": "^9.1.0",
+        "eslint-plugin-prettier": "^5.2.1"
+    }
+}
