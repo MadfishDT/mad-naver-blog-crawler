@@ -1,10 +1,6 @@
 import axios from 'axios';
 import * as qs from 'qs';
 import { parse, format } from 'url';
-import { google } from 'googleapis';
-import { Storage } from '@google-cloud/storage';
-import * as base64 from 'base64-js';
-import * as crypto from 'crypto';
 import * as dayjs from 'dayjs';
 import * as utc from 'dayjs/plugin/utc';
 import * as timezone from 'dayjs/plugin/timezone';
@@ -32,9 +28,9 @@ function createUrl(blogId: string, logNo: string, parentCategoryNo: string) {
     return `${baseUrl}?${qs.stringify(params)}`;
 }
 
-async function getLatest30BlogUrls(pageNo: number = 1) {
+async function getLatest30BlogUrls(pageNo: number = 1, categoryNo: number, countPerPage: number = 30) {
     const urlArray: Array<[string, string, string | null]> = [];
-    const url = `https://blog.naver.com/PostTitleListAsync.naver?blogId=rsv-club&viewdate=&currentPage=${pageNo}&categoryNo=6&parentCategoryNo=&countPerPage=30`;
+    const url = `https://blog.naver.com/PostTitleListAsync.naver?blogId=rsv-club&viewdate=&currentPage=${pageNo}&categoryNo=${categoryNo}&parentCategoryNo=&countPerPage=${countPerPage}`;
 
     const response = await axios.get(url);
     const data = JSON.parse(response.data.replace('\\', ''));
@@ -112,32 +108,8 @@ function getFileExtFromUrl(url: string): string {
     return path.extname(parsedUrl.pathname || '');
 }
 
-async function execute(event: any, context: any) {
-    const API_HOST = process.env.API_HOST || '';
-    const API_KEY = process.env.API_KEY || '';
-
-    const storageProjectId = process.env.GOOGLE_STORAGE_PROJECT_ID || '';
-    const storageEmail = process.env.GOOGLE_STORAGE_EMAIL || '';
-    const storagePrivateKey = process.env.GOOGLE_STORAGE_PRIVATE_KEY
-        ? process.env.GOOGLE_STORAGE_PRIVATE_KEY.replace(/\\n/g, '\n')
-        : '';
-
-    const storage = new Storage({
-        projectId: storageProjectId,
-        credentials: {
-            client_email: storageEmail,
-            private_key: storagePrivateKey
-        }
-    });
-
-    let pubsubMessage = null;
-    if (event && event.data) {
-        pubsubMessage = Buffer.from(event.data, 'base64').toString('utf-8');
-    }
-
-    const urlList =
-        pubsubMessage && parseInt(pubsubMessage)
-            ? await getLatest30BlogUrls(parseInt(pubsubMessage))
+async function crawling(page: number, categoryNo: string) {
+    await getLatest30BlogUrls(page, categoryNo)
             : await getLatest30BlogUrls(2);
 
     const results: Array<any> = [];
