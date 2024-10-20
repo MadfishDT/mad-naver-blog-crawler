@@ -5,6 +5,7 @@ import * as dayjs from 'dayjs';
 import * as utc from 'dayjs/plugin/utc';
 import * as timezone from 'dayjs/plugin/timezone';
 import * as path from 'path';
+import * as fs from 'fs';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -16,17 +17,17 @@ export interface BlogArchive {
     title: string;
     link: string;
     date: string;
-    image: string;
+    image?: string | null;
 }
 
-function getBlogCategoryPageUrl(categoryNo: number, pageNo: number = 1, countPerPage: number = 30) {
+function getBlogCategoryPageUrl(blogId: string, categoryNo?: number, pageNo: number = 1, countPerPage: number = 30) {
     return `https://blog.naver.com/PostTitleListAsync.naver?blogId=${blogId}&viewdate=&currentPage=${pageNo}&categoryNo=${categoryNo}&parentCategoryNo=&countPerPage=${countPerPage}`;
 }
 
 export class BlogCrawler {
     private blogId: string;
     private countPerPage: number;
-    private categoryNumber: number;
+    private categoryNumber: number | undefined;
 
 
     constructor(blogId: string, categoryNumber: number, countPerPage: number) {
@@ -57,13 +58,14 @@ export class BlogCrawler {
      * @param pageNumber : blog post list page counter
      * @returns : Array<[title, blogUrl, formattedDate]> 
      */
-    public async getLatest30BlogUrls(pageNumber: number): Promise<Array<[string, string, string | null]>> {
+    public async getLatestBlogUrls(pageNumber: number): Promise<Array<[string, string, string | null]>> {
         const urlArray: Array<[string, string, string | null]> = [];
-        const url = getBlogCategoryPageUrl(this.categoryNumber, pageNumber, this.countPerPage);
+        const url = getBlogCategoryPageUrl(this.blogId, this.categoryNumber, pageNumber, this.countPerPage);
 
         const response = await axios.get(url);
         //get post data
-        const data = JSON.parse(response.data.replace('\\', ''));
+        const safeString = response.data.replace(/'/g, "\\'");
+        const data = JSON.parse(safeString);
 
         for (const post of data.postList) {
             const logNo = post.logNo;
@@ -86,7 +88,9 @@ export class BlogCrawler {
 
     private async getPostFilesFromBlogUrl(url: string): Promise<string | null> {
         const response = await axios.get(url);
+        console.log(url);
         const match = response.data.match(/data-lazy-src="(https:\/\/postfiles\.pstatic\.net\/[^"]+)"/);
+        console.log(match);
         return match ? match[1] : null;
     }
 
@@ -106,29 +110,23 @@ export class BlogCrawler {
         return Buffer.from(response.data, 'binary');
     }
 
-    private getFileExtFromUrl(url: string): string {
-        const parsedUrl = parse(url);
-        return path.extname(parsedUrl.pathname || '');
-    }
-
-    public async crawl(pageCounts: number = 30): Promise<BlogArchive[]> {
-        const urlList = await this.getLatest30BlogUrls(pageCounts);
+    public async execute(pageCounts: number = 30): Promise<BlogArchive[]> {
+        const urlList = await this.getLatestBlogUrls(pageCounts);
         const results: Array<BlogArchive> = [];
 
         for (const [title, url, date] of urlList) {
             const imageUrl = await this.getPostFilesFromBlogUrl(url);
             const id = this.extractBlogIdLogNo(url);
-            if (imageUrl) {
-                const archive = {
-                    id,
-                    title,
-                    link: url,
-                    date: this.createDatetimeKrNoon(date || ''),
-                    image: imageUrl
-                };
-                results.push(archive);
-            }
+            const archive = {
+                id,
+                title,
+                link: url,
+                date: this.createDatetimeKrNoon(date || ''),
+                image: imageUrl
+            };
+            results.push(archive);
         }
+
 
         /* if (results.length > 0) {
              for (const archive of results) {
