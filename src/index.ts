@@ -6,6 +6,7 @@ import * as utc from 'dayjs/plugin/utc';
 import * as timezone from 'dayjs/plugin/timezone';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as cheerio from 'cheerio';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -86,12 +87,35 @@ export class BlogCrawler {
         return urlArray;
     }
 
-    private async getPostFilesFromBlogUrl(url: string): Promise<string | null> {
+    private async getPostFirstImageFilesFromBlogUrl(url: string): Promise<string | null> {
         const response = await axios.get(url);
-        console.log(url);
         const match = response.data.match(/data-lazy-src="(https:\/\/postfiles\.pstatic\.net\/[^"]+)"/);
-        console.log(match);
-        return match ? match[1] : null;
+        if (match) {
+            try {
+                const response = await axios.get(match[1]);
+                if (response.headers['content-type'].startsWith('image')) {
+                    return match[1];
+                }
+                return match[1];
+            } catch {
+                //pass
+            }
+        }
+
+        try {
+            const $ = cheerio.load(response.data);
+            const firstImg = $('img.se-image-resource').first();
+            if (firstImg.length) {
+                const imageSrc = firstImg.attr('src') as string;
+                const response = await axios.get(imageSrc);
+                if (response.headers['content-type'].startsWith('image')) {
+                    return imageSrc;
+                }
+            }
+        } catch {
+            return null;
+        }
+        return null;
     }
 
     private extractBlogIdLogNo(url: string): string {
